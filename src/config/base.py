@@ -122,7 +122,7 @@ def parse_args(base_parser, args, namespace):
     )
 
     # Dataset params
-    parser.add_argument("--datasets-dir", type=str, default="./datasets/")
+    parser.add_argument("--datasets-dir", type=str, default=os.path.join(os.environ.get('PERSISTENT_PATH', './'), 'datasets'))
     parser.add_argument(
         "--dataset",
         default="slimpajama",
