@@ -1,4 +1,5 @@
 import distributed
+import os
 
 
 def parse_args(base_parser, args, namespace):
@@ -21,7 +22,7 @@ def parse_args(base_parser, args, namespace):
     parser.add_argument("--log-interval", default=50, type=int)
 
     # Checkpointing
-    parser.add_argument("--results-base-folder", default="./exps", type=str)
+    parser.add_argument("--results-base-folder", default=os.environ.get('PERSISTENT_PATH', './exps'), type=str)
     parser.add_argument("--permanent-ckpt-interval", default=0, type=int)
     parser.add_argument("--latest-ckpt-interval", default=0, type=int)
     parser.add_argument("--resume-from", default=None, type=str)
