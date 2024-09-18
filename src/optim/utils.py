@@ -59,6 +59,7 @@ def wsd_schedule(
     init_div_factor=100,
     fract_decay=0.1,
     decay_type="linear",
+    sqrt_power=0.5,
 ):
     """Warmup, hold, and decay schedule.
     Args:
@@ -111,7 +112,7 @@ def wsd_schedule(
 
             elif decay_type == "sqrt":
                 return final_lr_factor + (1 - final_lr_factor) * (
-                    1 - math.sqrt((step - n_hold) / n_anneal_steps)
+                    1 - ((step - n_hold) / n_anneal_steps) ** sqrt_power
                 )
 
             else:

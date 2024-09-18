@@ -17,6 +17,22 @@ from optim.base import train
 from optim.utils import cos_inf_schedule, wsd_schedule
 
 
+def wandb_init(args, exp_name):
+    wandb.init(
+        id=args.wandb_run_id,
+        project=args.wandb_project,
+        name=exp_name,
+        config=vars(args),
+        resume="allow"
+    )
+    wandb.define_metric("iter")
+    wandb.define_metric("train/*", step_metric="iter")
+    wandb.define_metric("val/*", step_metric="iter")
+    wandb.define_metric("lr", step_metric="iter")
+
+    return wandb.run.id
+
+
 def main(args):
     distributed_backend = distributed.make_backend_from_args(args)
     args = distributed_backend.get_adjusted_args_for_process(args)
@@ -37,16 +53,30 @@ def main(args):
 
     exp_name = get_exp_name(args, distributed_backend)
     exp_dir = Path(args.results_base_folder) / exp_name
+
+    if (exp_dir / "ckpts" / "latest" / "main.pt").exists():
+        if not args.auto_resume:
+            raise ValueError(
+                f"The experiment dir {exp_dir} already exists. "
+                + "To resume training, set auto_resume=True. "
+                + "Otherwise, specify a different experiment name. "
+            )
+        else:
+            # Auto resume overwrites resume_from
+            args.resume_from = str(exp_dir / "ckpts" / "latest")
+
+            # Auto resume resumes wandb run
+            if (exp_dir / "ckpts" / "latest" / 'wandb_id.txt').exists():
+                with open(exp_dir / "ckpts" / "latest" / 'wandb_id.txt') as file:
+                    args.wandb_run_id = file.read().strip()
+    elif distributed_backend.is_master_process():
+        exp_dir.mkdir(parents=True, exist_ok=True)
+
     if distributed_backend.is_master_process() and args.wandb:
-        wandb.init(
-            project=args.wandb_project,
-            name=exp_name,
-            config=vars(args),
-        )
-        wandb.define_metric("iter")
-        wandb.define_metric("train/*", step_metric="iter")
-        wandb.define_metric("val/*", step_metric="iter")
-        wandb.define_metric("lr", step_metric="iter")
+        run_id = wandb_init(args, exp_name)
+        (exp_dir / "ckpts" / "latest").mkdir(parents=True, exist_ok=True)
+        with open(exp_dir / "ckpts" / "latest" / 'wandb_id.txt', 'w') as file:
+            file.write(run_id)
 
     print(f"Starting Experiment: {exp_name}")
     print(f"Experiment Directory: {exp_dir}")
@@ -134,26 +164,13 @@ def main(args):
                 init_div_factor=1e2,
                 final_lr_factor=args.wsd_final_lr_scale,  # should be 0 here
                 decay_type=args.decay_type,
+                sqrt_power=args.sqrt_decay_power
             )
             scheduler = torch.optim.lr_scheduler.LambdaLR(opt, lambda_schedule)
         else:
             raise NotImplementedError(f"Unknown scheduler type: {args.scheduler}.")
     else:
         scheduler = None
-
-    if (exp_dir / "ckpts" / "latest" / "main.pt").exists():
-        if not args.auto_resume:
-            raise ValueError(
-                f"The experiment dir {exp_dir} already exists. "
-                + "To resume training, set auto_resume=True. "
-                + "Otherwise, specify a different experiment name. "
-            )
-        else:
-            # Auto resume overwrites resume_from
-            args.resume_from = str(exp_dir / "ckpts" / "latest")
-
-    elif distributed_backend.is_master_process():
-        exp_dir.mkdir(parents=True, exist_ok=True)
 
     if args.compile:
         print(f"Compiling model ...")
