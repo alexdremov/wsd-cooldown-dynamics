@@ -63,11 +63,16 @@ def parse_args(base_parser, args, namespace):
     parser.add_argument(
         "--decay-type",
         default="linear",
-        choices=["linear", "cosine", "exp", "miror_cosine", "square", "sqrt"],
+        choices=["linear", "linear_pw", "cosine", "exp", "miror_cosine", "square", "sqrt"],
     )
     parser.add_argument(
         "--sqrt-decay-power",
         default=0.5,
+        type=float,
+    )
+    parser.add_argument(
+        "--linear-pw-subdivisions",
+        nargs="*",
         type=float,
     )
     # Optimization

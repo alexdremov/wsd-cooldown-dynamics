@@ -40,7 +40,7 @@ class DataParallelDistributedBackend(DistributedBackend):
 
     @contextmanager
     def get_context_for_microstep_forward(
-        self, model, microstep_idx, gradient_accumulation_steps
+        self, model: DDP, microstep_idx, gradient_accumulation_steps
     ):
         with contextlib.nullcontext() if microstep_idx == gradient_accumulation_steps - 1 else model.no_sync():
             yield

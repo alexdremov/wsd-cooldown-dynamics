@@ -164,7 +164,8 @@ def main(args):
                 init_div_factor=1e2,
                 final_lr_factor=args.wsd_final_lr_scale,  # should be 0 here
                 decay_type=args.decay_type,
-                sqrt_power=args.sqrt_decay_power
+                sqrt_power=args.sqrt_decay_power,
+                linear_pw_subdivisions=args.linear_pw_subdivisions
             )
             scheduler = torch.optim.lr_scheduler.LambdaLR(opt, lambda_schedule)
         else:

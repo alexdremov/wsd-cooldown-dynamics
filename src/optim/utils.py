@@ -60,6 +60,7 @@ def wsd_schedule(
     fract_decay=0.1,
     decay_type="linear",
     sqrt_power=0.5,
+    linear_pw_subdivisions=[]
 ):
     """Warmup, hold, and decay schedule.
     Args:
@@ -81,10 +82,15 @@ def wsd_schedule(
         elif step < n_hold:
             return 1.0
         elif step < n_iterations:
-            if decay_type == "linear":
-                return final_lr_factor + (1 - final_lr_factor) * (
-                    1 - (step - n_hold) / n_anneal_steps
-                )
+            if decay_type == "linear" or decay_type == "linear_pw":
+                subdivisions = [1.0] + linear_pw_subdivisions + [final_lr_factor]
+                division_step = 1 / (len(subdivisions) - 1)
+
+                cooldown_fraction = (step - n_hold) / n_anneal_steps
+                now_subdivision = math.floor(cooldown_fraction / division_step)
+                left_frac, right_frac = subdivisions[now_subdivision], subdivisions[now_subdivision + 1]
+                local_fraction = (cooldown_fraction - division_step * now_subdivision) / division_step
+                return left_frac + (right_frac - left_frac) * local_fraction
             elif decay_type == "exp":
                 return final_lr_factor ** ((step - n_hold) / n_anneal_steps)
             elif decay_type == "cosine":
