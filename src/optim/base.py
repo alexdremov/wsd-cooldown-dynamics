@@ -175,17 +175,17 @@ def train(
         t_start = time.perf_counter_ns()
         for microstep_idx in range(cfg.acc_steps):  # gradient accumulation
             x, y = get_batch(train_reader, device=cfg.device)
-            with type_ctx:
-                with distributed_backend.get_context_for_microstep_forward(
+            with distributed_backend.get_context_for_microstep_forward(
                     model=model,
                     microstep_idx=microstep_idx,
                     gradient_accumulation_steps=cfg.acc_steps,
                 ):
+                with type_ctx:
                     outputs = model(x, targets=y)
 
-            loss = outputs["loss"] / cfg.acc_steps
-            loss.backward()
-            substep += 1
+                loss = outputs["loss"] / cfg.acc_steps
+                loss.backward()
+                substep += 1
 
         if cfg.grad_clip != 0.0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)

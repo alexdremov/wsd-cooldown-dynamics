@@ -1,3 +1,4 @@
+import contextlib
 import os
 import math
 from contextlib import contextmanager
@@ -41,10 +42,8 @@ class DataParallelDistributedBackend(DistributedBackend):
     def get_context_for_microstep_forward(
         self, model, microstep_idx, gradient_accumulation_steps
     ):
-        model.require_backward_grad_sync = (
-            microstep_idx == gradient_accumulation_steps - 1
-        )
-        yield
+        with contextlib.nullcontext() if microstep_idx == gradient_accumulation_steps - 1 else model.no_sync():
+            yield
 
     def is_master_process(self) -> bool:
         return self.rank == 0
