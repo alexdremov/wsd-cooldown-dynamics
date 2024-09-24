@@ -60,7 +60,8 @@ def wsd_schedule(
     fract_decay=0.1,
     decay_type="linear",
     sqrt_power=0.5,
-    linear_pw_subdivisions=[]
+    linear_pw_subdivisions=[],
+    cooldown_start_lr_factor=1.0,
 ):
     """Warmup, hold, and decay schedule.
     Args:
@@ -75,6 +76,7 @@ def wsd_schedule(
     """
     n_anneal_steps = int(fract_decay * n_iterations)
     n_hold = n_iterations - n_anneal_steps
+    linear_pw_subdivisions = linear_pw_subdivisions or []
 
     def schedule(step):
         if step < n_warmup:
@@ -83,7 +85,7 @@ def wsd_schedule(
             return 1.0
         elif step < n_iterations:
             if decay_type == "linear" or decay_type == "linear_pw":
-                subdivisions = [1.0] + linear_pw_subdivisions + [final_lr_factor]
+                subdivisions = [cooldown_start_lr_factor] + linear_pw_subdivisions + [final_lr_factor]
                 division_step = 1 / (len(subdivisions) - 1)
 
                 cooldown_fraction = (step - n_hold) / n_anneal_steps
