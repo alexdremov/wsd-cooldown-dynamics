@@ -91,6 +91,7 @@ class DataReader:
         self.epoch_offset = None
         self.step = 0
         self.num_batches_of_seqlen = 0
+        self.previously_shuffled = set()
         if not with_replacement:
             self._shuffle_epoch(0)
 
@@ -144,6 +145,11 @@ class DataReader:
         return rng.integers(len(self), self.batch_size)
 
     def _shuffle_epoch(self, epoch):
+        if epoch in self.previously_shuffled:
+            # avoid unnecessary reshuffles (even with the same seed)
+            return
+        self.previously_shuffled.add(epoch)
+
         seed = self.seed + epoch
         rng = np.random.default_rng(seed)
         # Drop one sequence to allow different offsets per epoch:
@@ -154,6 +160,17 @@ class DataReader:
         self.num_batches_of_seqlen = (
             len(self.order) // self.batch_size
         )  # Drops remainder batch
+
+    def shuffle_next_steps(self, steps, seed):
+        epoch_length = self.num_batches_of_seqlen
+        batch_idx = self.world_size * self.step % epoch_length
+
+        start = batch_idx * self.batch_size
+        end = start + steps * self.batch_size * self.world_size
+        assert end <= len(self.order), "Cannot shuffle over the epoch horizon"
+
+        rng = np.random.default_rng(seed)
+        self.order[start:end] = rng.permutation(self.order[start:end])
 
     def _sample_without_replacement(self, step):
         # Return an array of token indices of length self.batch_size

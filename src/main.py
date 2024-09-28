@@ -249,6 +249,8 @@ def get_exp_name(args, distributed_backend):
     if args.opt == "SFAdamW":
         exp_name += f"_beta1_{args.beta1}"
         exp_name += f"_beta2_{args.beta2}"
+    if args.shuffle_next_steps:
+        exp_name = f"{exp_name}_shuffle_next_{args.shuffle_next_steps}_{args.shuffle_next_steps_seed}"
     return exp_name
 
 

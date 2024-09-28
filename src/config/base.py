@@ -80,6 +80,9 @@ def parse_args(base_parser, args, namespace):
         type=float,
         default=1.0
     )
+    # Shuffle some of the upcoming steps
+    parser.add_argument("--shuffle-next-steps", default=None, type=int)
+    parser.add_argument("--shuffle-next-steps-seed", default=42, type=int)
     # Optimization
     parser.add_argument("--opt", default="adamw", choices=["adamw", "sgd", "SFAdamW"])
     parser.add_argument("--batch-size", default=50, type=int)

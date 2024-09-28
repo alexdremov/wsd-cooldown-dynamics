@@ -104,6 +104,10 @@ def train(
     substep = curr_iter * cfg.acc_steps
     train_reader, val_reader = datareaders["train"], datareaders["val"]
     train_reader.set_step(substep)
+
+    if cfg.shuffle_next_steps:
+        train_reader.shuffle_next_steps(cfg.shuffle_next_steps, cfg.shuffle_next_steps_seed)
+
     stats = {"train_loss": [], "val_loss": [], "val_pp": [], "val_acc": []}
     model.train()
 
