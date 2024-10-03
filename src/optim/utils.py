@@ -1,6 +1,7 @@
 from pathlib import Path
 import random
 import numpy as np
+from optim.weight_averaging import ExponentialWeightAverager, WeightAverager
 import torch
 import torch.nn.functional as F
 from contextlib import nullcontext
@@ -249,7 +250,7 @@ def eval_sweep_alphath(
     return x_axis, y_axis_acc, y_axis_pp, y_axis_loss
 
 
-def save_checkpoint(model, opt, scheduler, itr, ckpt_dir: Path):
+def save_checkpoint(model, opt, scheduler, itr, ckpt_dir: Path, weight_averager: WeightAverager | None = None, ema: ExponentialWeightAverager | None = None):
     if isinstance(model, torch.nn.parallel.DistributedDataParallel):
         model = model.module
 
@@ -258,12 +259,14 @@ def save_checkpoint(model, opt, scheduler, itr, ckpt_dir: Path):
         "optimizer": opt.state_dict(),
         "scheduler": scheduler.state_dict(),
         "itr": itr,
+        "weight_averager": weight_averager.state_dict(),
+        "ema": ema.state_dict()
     }
     ckpt_dir.mkdir(exist_ok=True, parents=True)
     torch.save(checkpoint, ckpt_dir / "main.pt")
 
 
-def load_checkpoint(model, opt, scheduler, ckpt_path, device):
+def load_checkpoint(model, opt, scheduler, ckpt_path, device, weight_averager: WeightAverager | None = None, ema: ExponentialWeightAverager | None = None):
     if isinstance(model, torch.nn.parallel.DistributedDataParallel):
         model = model.module
 
@@ -271,6 +274,10 @@ def load_checkpoint(model, opt, scheduler, ckpt_path, device):
     model.load_state_dict(ckpt["model"])
     opt.load_state_dict(ckpt["optimizer"])
     scheduler.load_state_dict(ckpt["scheduler"])
+    if weight_averager is not None:
+        weight_averager.load_state_dict(ckpt['weight_averager'])
+    if ema is not None:
+        ema.load_state_dict(ckpt['ema'])
     itr = ckpt["itr"]
     return itr
 

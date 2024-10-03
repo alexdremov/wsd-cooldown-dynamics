@@ -1,11 +1,21 @@
-from copy import deepcopy
 from pathlib import Path
 import tempfile
+from io import BytesIO
 
 import torch
 import wandb
 
 from .utils import eval
+
+
+def copy_on_cpu(model):
+    model_data_in_memory = BytesIO()
+    torch.save(model, model_data_in_memory, pickle_protocol=-1)
+    model_data_in_memory.seek(0)
+
+    copy = torch.load(model_data_in_memory, map_location="cpu")
+    model_data_in_memory.close()
+    return copy
 
 
 class WeightAverager:
@@ -24,7 +34,7 @@ class WeightAverager:
         self.dtype = dtype  # Precision for accumulation (>= float32)
         if isinstance(model, torch.nn.parallel.DistributedDataParallel):
             model = model.module
-        self.module = deepcopy(model).to(dtype=self.dtype, device=device)
+        self.module = copy_on_cpu(model).to(dtype=self.dtype, device=device)
 
         assert horizon % interval == 0, "Interval should divide period"
         self.interval = interval
@@ -64,11 +74,12 @@ class WeightAverager:
             )
             self.num_saved += 1
 
+    @torch.no_grad()
     def get_latest_like(self, model):
         # Return model for latest completed period
         if isinstance(model, torch.nn.parallel.DistributedDataParallel):
             model = model.module
-        new_model = deepcopy(model)
+        new_model = copy_on_cpu(model)
 
         # Assumes that we saved at a specific iteration, will fail otherwise
         count = self.count - self.count % self.horizon
@@ -80,8 +91,8 @@ class WeightAverager:
     def sweep_horizon_like(self, model, max_num=None):
         if isinstance(model, torch.nn.parallel.DistributedDataParallel):
             model = model.module
-        new_model = deepcopy(model)
-        avg_state = deepcopy(self.module.state_dict())
+        new_model = copy_on_cpu(model)
+        avg_state = copy_on_cpu(self.module.state_dict())
         if max_num is None:
             max_num = self.num_saved
         # Assumes all points exist
@@ -100,13 +111,28 @@ class WeightAverager:
             map_and_load_state_dict(new_model, avg_state)
             yield ((n + 1) * self.horizon, new_model)
 
+    def state_dict(self):
+        count = self.count - self.count % self.horizon
+        return dict(
+            model_path=self.save_dir / f"{count}.pt",
+            count=self.count,
+        )
+
+    def load_state_dict(self, data):
+        self.count = data['count']
+
 
 def map_and_load_state_dict(model, state_dict):
     for key, m_val in model.state_dict().items():
+        for alias in (f'_orig_mod.{key}', f'_orig_mod.module.{key}'):
+            if key not in state_dict and alias in state_dict:
+                key = alias
+                break
         s_val = state_dict[key]
         m_val.copy_(s_val.to(device=m_val.device, dtype=m_val.dtype))
 
 
+@torch.no_grad()
 def eval_wa(
     curr_iter,
     model,
@@ -124,9 +150,10 @@ def eval_wa(
     if weight_averager.num_saved == 0:
         return
     if not cfg.wa_sweep_horizon:
+        eval_model = weight_averager.get_latest_like(model).eval().to(cfg.device)
         val_reader.set_step(0)
-        val_acc, val_loss, val_perplexity, _, _ = eval(
-            weight_averager.get_latest_like(model).eval(),
+        val_acc, val_loss, val_perplexity = eval(
+            eval_model,
             val_reader,
             cfg.device,
             max_num_batches=(
@@ -137,6 +164,8 @@ def eval_wa(
             ctx=type_ctx,
             cfg=cfg,
         )
+        eval_model.cpu()
+        del eval_model
 
         if cfg.wandb:
             if curr_iter == cfg.iterations or full_eval:
@@ -167,7 +196,7 @@ def eval_wa(
         ):
             avg_model.eval()
             val_reader.set_step(0)
-            _, val_loss, _, _, _ = eval(
+            _, val_loss, _ = eval(
                 avg_model,
                 val_reader,
                 cfg.device,
@@ -223,7 +252,7 @@ class ExponentialWeightAverager:
         self.dtype = dtype  # Precision for accumulation (>= float32)
         if isinstance(model, torch.nn.parallel.DistributedDataParallel):
             model = model.module
-        self.module = deepcopy(model).to(dtype=self.dtype, device=device)
+        self.module = copy_on_cpu(model).to(dtype=self.dtype, device=device)
 
         self.interval = interval
         self.decay = decay
@@ -263,19 +292,35 @@ class ExponentialWeightAverager:
         #     )
         #     self.num_saved += 1
 
+    @torch.no_grad()
     def get_latest_like(self, model):
         # Return model for latest completed period
         if isinstance(model, torch.nn.parallel.DistributedDataParallel):
             model = model.module
-        new_model = deepcopy(model)
+        new_model = copy_on_cpu(model)
 
         map_and_load_state_dict(
-            new_model, self.module.to(dtype=torch.bfloat16).state_dict()
+            new_model, self.module.state_dict()
         )
 
         return new_model
 
+    def state_dict(self):
+        return dict(
+            model=self.module.state_dict(),
+            count=self.count,
+            num_saved=self.num_saved,
+        )
 
+    def load_state_dict(self, data):
+        map_and_load_state_dict(
+            self.module, data['model']
+        )
+        self.count = data['count']
+        self.num_saved = data['num_saved']
+
+
+@torch.no_grad()
 def eval_ema(
     curr_iter,
     model,
@@ -291,8 +336,9 @@ def eval_ema(
         return
 
     val_reader.set_step(0)
-    val_acc, val_loss, val_perplexity, _, _ = eval(
-        ema.get_latest_like(model).eval(),
+    eval_model = ema.get_latest_like(model).eval().to(cfg.device)
+    val_acc, val_loss, val_perplexity = eval(
+        eval_model,
         val_reader,
         cfg.device,
         max_num_batches=(
@@ -303,6 +349,8 @@ def eval_ema(
         ctx=type_ctx,
         cfg=cfg,
     )
+    eval_model.cpu()
+    del eval_model
 
     if cfg.wandb:
         if curr_iter == cfg.iterations or full_eval:

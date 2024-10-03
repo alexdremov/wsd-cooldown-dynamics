@@ -174,10 +174,6 @@ def main(args):
     else:
         scheduler = None
 
-    if args.compile:
-        print(f"Compiling model ...")
-        model = torch.compile(model)
-
     stats = train(
         model=model,
         opt=opt,

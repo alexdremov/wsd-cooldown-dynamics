@@ -33,6 +33,11 @@ def train(
     distributed_backend,
     cfg,
 ):
+    if cfg.compile:
+        print(f"Compiling model ...")
+        non_compiled_model = model
+        model = torch.compile(model)
+
     if "cuda" in cfg.device:
         type_ctx = torch.amp.autocast(
             device_type="cuda",
@@ -45,6 +50,36 @@ def train(
     else:
         type_ctx = nullcontext()
 
+    if cfg.weight_average:
+        # This does generally not support resuming training, but will work if
+        # cfg.wa_interval perfectly divides the iteration number of the chkpt.
+        # Otherwise, the first avg will not be correctly computed, with a bias
+        # towards the first sample and missing values for earlier iterations.
+        weight_averager = WeightAverager(
+            non_compiled_model,
+            horizon=cfg.wa_horizon,
+            interval=cfg.wa_interval,
+            device=cfg.device,
+            save_dir=None if cfg.wa_use_temp_dir else exp_dir / "avgs",
+            dtype={
+                "float32": torch.float32,
+                "float64": torch.float64,
+            }[cfg.wa_dtype],
+        )
+
+    if cfg.exponential_moving_average:
+        ema = ExponentialWeightAverager(
+            non_compiled_model,
+            interval=cfg.ema_interval,
+            decay=cfg.ema_decay,
+            device=cfg.device,
+            warmup=cfg.warmup_steps if cfg.ema_after_warmup else 0,
+            dtype={
+                "float32": torch.float32,
+                "float64": torch.float64,
+            }[cfg.wa_dtype],
+        )
+
     if cfg.resume_from:
         # This is a full resume including the model weights, optimizer, state
         # dataloader state, random seed, etc. Not indended for fine tuning or
@@ -52,44 +87,17 @@ def train(
         print(f"\nResuming Training From {cfg.resume_from}")
         ckpt_dir = Path(cfg.resume_from)
         curr_iter = load_checkpoint(
-            model,
-            opt,
-            scheduler,
-            ckpt_dir / "main.pt",
-            cfg.device,
+            model=model,
+            opt=opt,
+            scheduler=scheduler,
+            ckpt_path=ckpt_dir / "main.pt",
+            device=cfg.device,
+            weight_averager=weight_averager,
+            ema=ema
         )
         load_worker_state(ckpt_dir)
     else:
         curr_iter = 0
-
-    if cfg.weight_average:
-        # This does generally not support resuming training, but will work if
-        # cfg.wa_interval perfectly divides the iteration number of the chkpt.
-        # Otherwise, the first avg will not be correctly computed, with a bias
-        # towards the first sample and missing values for earlier iterations.
-        weight_averager = WeightAverager(
-            model,
-            horizon=cfg.wa_horizon,
-            interval=cfg.wa_interval,
-            save_dir=None if cfg.wa_use_temp_dir else exp_dir / "avgs",
-            dtype={
-                "float32": torch.float32,
-                "float64": torch.float64,
-            }[cfg.wa_dtype],
-            count=curr_iter,
-        )
-
-    if cfg.exponential_moving_average:
-        ema = ExponentialWeightAverager(
-            model,
-            interval=cfg.ema_interval,
-            decay=cfg.ema_decay,
-            warmup=cfg.warmup_steps if cfg.ema_after_warmup else 0,
-            dtype={
-                "float32": torch.float32,
-                "float64": torch.float64,
-            }[cfg.wa_dtype],
-        )
 
     if distributed_backend.is_master_process() and cfg.log_dynamics:
         with open(cfg.dynamics_logger_cfg, "r") as f:
@@ -122,7 +130,7 @@ def train(
             if curr_iter % cfg.permanent_ckpt_interval == 0:
                 ckpt_dir = exp_dir / "ckpts" / str(curr_iter)
                 if distributed_backend.is_master_process():
-                    save_checkpoint(model, opt, scheduler, curr_iter, ckpt_dir)
+                    save_checkpoint(model, opt, scheduler, curr_iter, ckpt_dir, weight_averager=weight_averager, ema=ema)
                 save_worker_state(ckpt_dir)
 
         # Save temporary checkpoint for resuming training
@@ -130,7 +138,7 @@ def train(
             if curr_iter % cfg.latest_ckpt_interval == 0 or curr_iter == cfg.iterations:
                 ckpt_dir = exp_dir / "ckpts" / "latest"
                 if distributed_backend.is_master_process():
-                    save_checkpoint(model, opt, scheduler, curr_iter, ckpt_dir)
+                    save_checkpoint(model, opt, scheduler, curr_iter, ckpt_dir, weight_averager=weight_averager, ema=ema)
                 save_worker_state(ckpt_dir)
 
         ws = distributed_backend.get_world_size()
@@ -156,7 +164,7 @@ def train(
             if curr_iter > cfg.wa_interval and cfg.weight_average:
                 eval_wa(
                     curr_iter,
-                    model,
+                    non_compiled_model,
                     weight_averager,
                     val_reader,
                     type_ctx,
@@ -167,7 +175,7 @@ def train(
             if cfg.exponential_moving_average:
                 eval_ema(
                     curr_iter,
-                    model,
+                    non_compiled_model,
                     ema,
                     val_reader,
                     type_ctx,
@@ -204,9 +212,9 @@ def train(
         scheduler.step()
         opt.zero_grad(set_to_none=True)
         if cfg.weight_average:
-            weight_averager.step(model, distributed_backend.is_master_process())
+            weight_averager.step(non_compiled_model, distributed_backend.is_master_process())
         if cfg.exponential_moving_average:
-            ema.step(model, distributed_backend.is_master_process())
+            ema.step(non_compiled_model, distributed_backend.is_master_process())
         dt = (time.perf_counter_ns() - t_start) / 1e9
 
         curr_iter += 1
@@ -240,6 +248,7 @@ def train(
     return stats
 
 
+@torch.no_grad()
 def eval_and_log(
     curr_iter,
     epoch,
