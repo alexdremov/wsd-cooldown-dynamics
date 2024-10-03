@@ -87,6 +87,9 @@ class DataReader:
 
         # Sampling without replacement
         self.last_epoch = None
+
+        # Drop one sequence to allow different offsets per epoch:
+        self.order_base = np.arange((len(self)) // self.sequence_length - 1)
         self.order = None
         self.epoch_offset = None
         self.step = 0
@@ -152,8 +155,7 @@ class DataReader:
 
         seed = self.seed + epoch
         rng = np.random.default_rng(seed)
-        # Drop one sequence to allow different offsets per epoch:
-        self.order = rng.permutation((len(self)) // self.sequence_length - 1)
+        self.order = rng.permutation(self.order_base)
         # Shift all sequences in this epoch by this amount:
         self.epoch_offset = rng.integers(self.sequence_length)
         self.last_epoch = epoch
@@ -161,7 +163,17 @@ class DataReader:
             len(self.order) // self.batch_size
         )  # Drops remainder batch
 
-    def shuffle_next_steps(self, steps, seed, replicate=False):
+    def shuffle_next_steps(self, steps, seed, replicate=False, reuse_before=False):
+        """
+
+        Adjust the order of the upcoming samples
+
+        steps: shuffle this count of upcoming steps
+        seed: seed to be used
+        replicate: replicate selected steps untill the rest of the epoch
+        reuse_before: use not only the specified steps but also all the steps before
+
+        """
         epoch_length = self.num_batches_of_seqlen
         batch_idx = self.world_size * self.step % epoch_length
 
@@ -170,12 +182,16 @@ class DataReader:
         assert end <= len(self.order), "Cannot shuffle over the epoch horizon"
 
         rng = np.random.default_rng(seed)
-        self.order[start:end] = rng.permutation(self.order[start:end])
-
         interval_size = end - start
+
+        interval_source = self.order[start:end]
+        if reuse_before:
+            interval_source = self.order[:end]
+        self.order[start:end] = rng.permutation(interval_source)[:interval_size]
+
         if replicate:
             for start_repl in range(end, len(self.order) - interval_size, interval_size):
-                self.order[start_repl:start_repl + interval_size] = rng.permutation(self.order[start:end])
+                self.order[start_repl:start_repl + interval_size] = rng.permutation(interval_source)[:interval_size]
 
     def _sample_without_replacement(self, step):
         # Return an array of token indices of length self.batch_size

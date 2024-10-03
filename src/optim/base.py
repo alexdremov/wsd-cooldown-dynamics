@@ -109,7 +109,8 @@ def train(
         train_reader.shuffle_next_steps(
             steps=cfg.shuffle_next_steps,
             seed=cfg.shuffle_next_steps_seed,
-            replicate=cfg.shuffle_next_steps_replicate
+            replicate=cfg.shuffle_next_steps_replicate,
+            reuse_before=cfg.shuffle_next_steps_use_all_before
         )
 
     stats = {"train_loss": [], "val_loss": [], "val_pp": [], "val_acc": []}
