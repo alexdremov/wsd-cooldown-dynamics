@@ -1,3 +1,4 @@
+from email.policy import default
 import distributed
 import os
 
@@ -83,6 +84,7 @@ def parse_args(base_parser, args, namespace):
     # Shuffle some of the upcoming steps
     parser.add_argument("--shuffle-next-steps", default=None, type=int)
     parser.add_argument("--shuffle-next-steps-seed", default=42, type=int)
+    parser.add_argument("--shuffle-next-steps-replicate", action='store_true')
     # Optimization
     parser.add_argument("--opt", default="adamw", choices=["adamw", "sgd", "SFAdamW"])
     parser.add_argument("--batch-size", default=50, type=int)
@@ -165,7 +167,6 @@ def parse_args(base_parser, args, namespace):
     parser.add_argument(
         "--data-in-ram", action="store_true"
     )  # force the data to RAM, mostly useless except for openwebtext2
-
     # Model params
     parser.add_argument(
         "--model",

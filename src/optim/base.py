@@ -106,7 +106,11 @@ def train(
     train_reader.set_step(substep)
 
     if cfg.shuffle_next_steps:
-        train_reader.shuffle_next_steps(cfg.shuffle_next_steps, cfg.shuffle_next_steps_seed)
+        train_reader.shuffle_next_steps(
+            steps=cfg.shuffle_next_steps,
+            seed=cfg.shuffle_next_steps_seed,
+            replicate=cfg.shuffle_next_steps_replicate
+        )
 
     stats = {"train_loss": [], "val_loss": [], "val_pp": [], "val_acc": []}
     model.train()

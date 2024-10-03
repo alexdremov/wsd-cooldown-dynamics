@@ -161,7 +161,7 @@ class DataReader:
             len(self.order) // self.batch_size
         )  # Drops remainder batch
 
-    def shuffle_next_steps(self, steps, seed):
+    def shuffle_next_steps(self, steps, seed, replicate=False):
         epoch_length = self.num_batches_of_seqlen
         batch_idx = self.world_size * self.step % epoch_length
 
@@ -171,6 +171,11 @@ class DataReader:
 
         rng = np.random.default_rng(seed)
         self.order[start:end] = rng.permutation(self.order[start:end])
+
+        interval_size = end - start
+        if replicate:
+            for start_repl in range(end, len(self.order) - interval_size, interval_size):
+                self.order[start_repl:start_repl + interval_size] = rng.permutation(self.order[start:end])
 
     def _sample_without_replacement(self, step):
         # Return an array of token indices of length self.batch_size
