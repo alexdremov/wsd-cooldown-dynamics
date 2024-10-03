@@ -50,6 +50,7 @@ def train(
     else:
         type_ctx = nullcontext()
 
+    weight_averager = None
     if cfg.weight_average:
         # This does generally not support resuming training, but will work if
         # cfg.wa_interval perfectly divides the iteration number of the chkpt.
@@ -67,6 +68,7 @@ def train(
             }[cfg.wa_dtype],
         )
 
+    ema = None
     if cfg.exponential_moving_average:
         ema = ExponentialWeightAverager(
             non_compiled_model,
