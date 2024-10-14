@@ -142,6 +142,11 @@ def parse_args(base_parser, args, namespace):
         action="store_true",
         help="Start EMA after warmup steps.",
     )
+    parser.add_argument(
+        '--resume-from-ema',
+        action="store_true",
+        help="Start training from EMA model",
+    )
 
     # Dataset params
     parser.add_argument("--datasets-dir", type=str, default=os.path.join(os.environ.get('PERSISTENT_PATH', './'), 'datasets'))

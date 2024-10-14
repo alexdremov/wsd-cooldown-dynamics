@@ -267,7 +267,7 @@ def save_checkpoint(model, opt, scheduler, itr, ckpt_dir: Path, weight_averager 
     torch.save(checkpoint, ckpt_dir / "main.pt")
 
 
-def load_checkpoint(model, opt, scheduler, ckpt_path, device, weight_averager = None, ema = None):
+def load_checkpoint(model, opt, scheduler, ckpt_path, device, weight_averager = None, ema = None, resume_from_ema=False):
     if isinstance(model, torch.nn.parallel.DistributedDataParallel):
         model = model.module
 
@@ -277,8 +277,20 @@ def load_checkpoint(model, opt, scheduler, ckpt_path, device, weight_averager = 
     scheduler.load_state_dict(ckpt["scheduler"])
     if weight_averager is not None and 'weight_averager' in ckpt:
         weight_averager.load_state_dict(ckpt['weight_averager'])
-    if ema is not None and 'ema' in ckpt:
+
+    ema_available = 'ema' in ckpt
+    if ema is not None and ema_available:
         ema.load_state_dict(ckpt['ema'])
+
+    if resume_from_ema:
+        assert ema_available, "EMA must be present in checkpoint to resume"
+        print("Loading EMA model as the main one")
+        model = getattr(model, '_orig_mod', model)
+        model = getattr(model, 'module', model)
+        model.load_state_dict(
+            ckpt['ema']['model']
+        )
+
     itr = ckpt["itr"]
     return itr
 

@@ -95,7 +95,8 @@ def train(
             ckpt_path=ckpt_dir / "main.pt",
             device=cfg.device,
             weight_averager=weight_averager,
-            ema=ema
+            ema=ema,
+            resume_from_ema=cfg.resume_from_ema
         )
         load_worker_state(ckpt_dir)
     else:

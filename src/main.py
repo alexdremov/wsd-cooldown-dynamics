@@ -64,8 +64,9 @@ def main(args):
         else:
             # Auto resume overwrites resume_from
             args.resume_from = str(exp_dir / "ckpts" / "latest")
+            args.resume_from_ema = False
 
-            # Auto resume resumes wandb run
+            # Auto resumes wandb run
             if (exp_dir / "ckpts" / "latest" / 'wandb_id.txt').exists():
                 with open(exp_dir / "ckpts" / "latest" / 'wandb_id.txt') as file:
                     args.wandb_run_id = file.read().strip()

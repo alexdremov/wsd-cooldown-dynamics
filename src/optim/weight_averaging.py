@@ -298,12 +298,16 @@ class ExponentialWeightAverager:
         if isinstance(model, torch.nn.parallel.DistributedDataParallel):
             model = model.module
         new_model = copy_on_cpu(model)
-
-        map_and_load_state_dict(
-            new_model, self.module.state_dict()
-        )
-
+        self.load_to_model(model)
         return new_model
+
+    @torch.no_grad()
+    def load_to_model(self, model):
+        if isinstance(model, torch.nn.parallel.DistributedDataParallel):
+            model = model.module
+        map_and_load_state_dict(
+            model, self.module.state_dict()
+        )
 
     def state_dict(self):
         return dict(
