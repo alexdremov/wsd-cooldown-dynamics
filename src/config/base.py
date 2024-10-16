@@ -143,6 +143,12 @@ def parse_args(base_parser, args, namespace):
         help="Start EMA after warmup steps.",
     )
     parser.add_argument(
+        "--ema-warmup-override",
+        default=None,
+        type=int,
+        help="Set warmup steps specifically for EMA.",
+    )
+    parser.add_argument(
         '--resume-from-ema',
         action="store_true",
         help="Start training from EMA model",

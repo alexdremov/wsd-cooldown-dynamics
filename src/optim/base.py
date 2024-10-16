@@ -75,7 +75,7 @@ def train(
             interval=cfg.ema_interval,
             decay=cfg.ema_decay,
             device=cfg.device,
-            warmup=cfg.warmup_steps if cfg.ema_after_warmup else 0,
+            warmup=(cfg.ema_warmup_override or cfg.warmup_steps) if cfg.ema_after_warmup else 0,
             dtype={
                 "float32": torch.float32,
                 "float64": torch.float64,
