@@ -180,7 +180,7 @@ def main(args):
         opt=opt,
         datareaders=datareaders,
         scheduler=scheduler,
-        exp_dir=exp_dir,
+        exp_dir=str(exp_dir),
         distributed_backend=distributed_backend,
         cfg=args,
     )

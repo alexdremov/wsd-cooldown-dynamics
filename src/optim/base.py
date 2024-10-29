@@ -61,7 +61,7 @@ def train(
             horizon=cfg.wa_horizon,
             interval=cfg.wa_interval,
             device=cfg.device,
-            save_dir=None if cfg.wa_use_temp_dir else exp_dir / "avgs",
+            save_dir=None if cfg.wa_use_temp_dir else str(Path(exp_dir) / "avgs"),
             dtype={
                 "float32": torch.float32,
                 "float64": torch.float64,
@@ -131,7 +131,7 @@ def train(
         # Save permanent checkpoint
         if cfg.permanent_ckpt_interval > 0:
             if curr_iter % cfg.permanent_ckpt_interval == 0:
-                ckpt_dir = exp_dir / "ckpts" / str(curr_iter)
+                ckpt_dir = Path(exp_dir) / "ckpts" / str(curr_iter)
                 if distributed_backend.is_master_process():
                     save_checkpoint(model, opt, scheduler, curr_iter, ckpt_dir, weight_averager=weight_averager, ema=ema)
                 save_worker_state(ckpt_dir)
@@ -139,7 +139,7 @@ def train(
         # Save temporary checkpoint for resuming training
         if cfg.latest_ckpt_interval > 0:
             if curr_iter % cfg.latest_ckpt_interval == 0 or curr_iter == cfg.iterations:
-                ckpt_dir = exp_dir / "ckpts" / "latest"
+                ckpt_dir = Path(exp_dir) / "ckpts" / "latest"
                 if distributed_backend.is_master_process():
                     save_checkpoint(model, opt, scheduler, curr_iter, ckpt_dir, weight_averager=weight_averager, ema=ema)
                 save_worker_state(ckpt_dir)

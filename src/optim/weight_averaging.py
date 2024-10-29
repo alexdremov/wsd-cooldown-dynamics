@@ -43,15 +43,16 @@ class WeightAverager:
         if save_dir is None:
             # Keep in tempdir
             self._tempdir = tempfile.TemporaryDirectory()
-            self.save_dir = Path(self._tempdir.name)
+            self.save_dir = self._tempdir.name
         else:
             self.save_dir = Path(save_dir)
             self.save_dir.mkdir(parents=True, exist_ok=True)
+            self.save_dir = str( self.save_dir)
         self.count = count
         # check if there are any checkpoints saved in the directory and set
         # num_saved to number of checkpoints with name <= count
         self.num_saved = len(
-            [f for f in self.save_dir.iterdir() if f.is_file() and int(f.stem) <= count]
+            [f for f in Path(self.save_dir).iterdir() if f.is_file() and int(f.stem) <= count]
         )
 
     @torch.no_grad()
@@ -70,7 +71,7 @@ class WeightAverager:
         if self.count % self.horizon == 0 and is_master_rank:
             torch.save(
                 self.module.to().state_dict(),
-                self.save_dir / f"{self.count}.pt",
+                Path(self.save_dir) / f"{self.count}.pt",
             )
             self.num_saved += 1
 
@@ -83,7 +84,7 @@ class WeightAverager:
 
         # Assumes that we saved at a specific iteration, will fail otherwise
         count = self.count - self.count % self.horizon
-        latest_path = self.save_dir / f"{count}.pt"
+        latest_path = Path(self.save_dir) / f"{count}.pt"
         map_and_load_state_dict(new_model, torch.load(latest_path))
 
         return new_model
@@ -99,7 +100,7 @@ class WeightAverager:
         for n in range(min(self.num_saved, max_num)):
             # Load state from the corresponding checkpoint
             count = self.count - self.count % self.horizon - n * self.horizon
-            state = torch.load(self.save_dir / f"{count}.pt")
+            state = torch.load(Path(self.save_dir) / f"{count}.pt")
 
             # Update average state
             for key, avg in avg_state.items():
@@ -114,7 +115,7 @@ class WeightAverager:
     def state_dict(self):
         count = self.count - self.count % self.horizon
         return dict(
-            model_path=self.save_dir / f"{count}.pt",
+            model_path=Path(self.save_dir) / f"{count}.pt",
             count=self.count,
         )
 
