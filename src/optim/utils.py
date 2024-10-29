@@ -263,6 +263,7 @@ def save_checkpoint(model, opt, scheduler, itr, ckpt_dir: Path, weight_averager 
         checkpoint['weight_averager'] = weight_averager.state_dict()
     if ema is not None:
         checkpoint['ema'] = ema.state_dict()
+    ckpt_dir = Path(str(ckpt_dir))
     ckpt_dir.mkdir(exist_ok=True, parents=True)
     torch.save(checkpoint, ckpt_dir / "main.pt")
 

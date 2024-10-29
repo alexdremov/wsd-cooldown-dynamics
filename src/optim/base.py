@@ -134,6 +134,7 @@ def train(
                 ckpt_dir = Path(exp_dir) / "ckpts" / str(curr_iter)
                 if distributed_backend.is_master_process():
                     save_checkpoint(model, opt, scheduler, curr_iter, ckpt_dir, weight_averager=weight_averager, ema=ema)
+                ckpt_dir = Path(exp_dir) / "ckpts" / str(curr_iter)
                 save_worker_state(ckpt_dir)
 
         # Save temporary checkpoint for resuming training
@@ -142,6 +143,7 @@ def train(
                 ckpt_dir = Path(exp_dir) / "ckpts" / "latest"
                 if distributed_backend.is_master_process():
                     save_checkpoint(model, opt, scheduler, curr_iter, ckpt_dir, weight_averager=weight_averager, ema=ema)
+                ckpt_dir = Path(exp_dir) / "ckpts" / str(curr_iter)
                 save_worker_state(ckpt_dir)
 
         ws = distributed_backend.get_world_size()
