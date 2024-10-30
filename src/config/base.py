@@ -87,7 +87,8 @@ def parse_args(base_parser, args, namespace):
     parser.add_argument("--shuffle-next-steps-replicate", action='store_true')
     parser.add_argument("--shuffle-next-steps-use-all-before", action='store_true')
     # Optimization
-    parser.add_argument("--opt", default="adamw", choices=["adamw", "sgd", "SFAdamW"])
+    parser.add_argument("--opt", default="adamw", choices=["adamw", "sgd", "SFAdamW", "SLS"])
+    parser.add_argument("--reset-optimizer", action="store_true")
     parser.add_argument("--batch-size", default=50, type=int)
     parser.add_argument("--acc-steps", default=4, type=int)
     parser.add_argument("--weight-decay", default=1e-1, type=float)
@@ -96,6 +97,9 @@ def parse_args(base_parser, args, namespace):
     parser.add_argument(
         "--grad-clip", default=1.0, type=float
     )  # default value is 1.0 in NanoGPT
+    parser.add_argument("--sls-reset-option", default=1, type=int)
+    parser.add_argument("--sls-function", default='goldstein', type=str)
+    parser.add_argument("--sls-c", default=0.9, type=float)
 
     # Weight Averaging
     parser.add_argument("--weight-average", action="store_true")

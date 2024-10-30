@@ -256,9 +256,10 @@ def save_checkpoint(model, opt, scheduler, itr, ckpt_dir: Path, weight_averager 
     checkpoint = {
         "model": model.state_dict(),
         "optimizer": opt.state_dict(),
-        "scheduler": scheduler.state_dict(),
         "itr": itr,
     }
+    if scheduler is not None:
+        checkpoint["scheduler"] = scheduler.state_dict()
     if weight_averager is not None:
         checkpoint['weight_averager'] = weight_averager.state_dict()
     if ema is not None:
@@ -268,14 +269,16 @@ def save_checkpoint(model, opt, scheduler, itr, ckpt_dir: Path, weight_averager 
     torch.save(checkpoint, ckpt_dir / "main.pt")
 
 
-def load_checkpoint(model, opt, scheduler, ckpt_path, device, weight_averager = None, ema = None, resume_from_ema=False):
+def load_checkpoint(model, opt, scheduler, ckpt_path, device, weight_averager = None, ema = None, resume_from_ema=False, reset_optimizer=False):
     if isinstance(model, torch.nn.parallel.DistributedDataParallel):
         model = model.module
 
     ckpt = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(ckpt["model"])
-    opt.load_state_dict(ckpt["optimizer"])
-    scheduler.load_state_dict(ckpt["scheduler"])
+    if not reset_optimizer and "optimizer" in ckpt:
+        opt.load_state_dict(ckpt["optimizer"])
+    if scheduler is not None and "scheduler" in ckpt:
+        scheduler.load_state_dict(ckpt["scheduler"])
     if weight_averager is not None and 'weight_averager' in ckpt:
         weight_averager.load_state_dict(ckpt['weight_averager'])
 

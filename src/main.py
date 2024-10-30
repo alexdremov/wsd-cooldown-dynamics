@@ -15,7 +15,7 @@ import distributed
 from models.utils import get_model
 from optim.base import train
 from optim.utils import cos_inf_schedule, wsd_schedule
-
+from optim.sls import Sls
 
 def wandb_init(args, exp_name):
     wandb.init(
@@ -126,10 +126,17 @@ def main(args):
             weight_decay=args.weight_decay,
             warmup_steps=args.warmup_steps,
         )
-
+    elif args.opt == "SLS":
+        opt = Sls(
+            params=group_specs,
+            reset_option=args.sls_reset_option,
+            c=args.sls_c,
+            line_search_fn=args.sls_function,
+            lr=args.lr,
+        )
     else:
         opt = torch.optim.SGD(
-            group_specs, lr=args.lr, momentum=0.9, weight_decay=args.weight_decay
+            group_specs, lr=args.lr, momentum=args.beta1, weight_decay=args.weight_decay
         )
     print(f"\nOptimizer:\n{opt}")
 

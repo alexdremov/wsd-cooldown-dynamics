@@ -96,7 +96,8 @@ def train(
             device=cfg.device,
             weight_averager=weight_averager,
             ema=ema,
-            resume_from_ema=cfg.resume_from_ema
+            resume_from_ema=cfg.resume_from_ema,
+            reset_optimizer=cfg.reset_optimizer
         )
         load_worker_state(ckpt_dir)
     else:
@@ -143,7 +144,7 @@ def train(
                 ckpt_dir = Path(exp_dir) / "ckpts" / "latest"
                 if distributed_backend.is_master_process():
                     save_checkpoint(model, opt, scheduler, curr_iter, ckpt_dir, weight_averager=weight_averager, ema=ema)
-                ckpt_dir = Path(exp_dir) / "ckpts" / str(curr_iter)
+                ckpt_dir = Path(exp_dir) / "ckpts" / "latest"
                 save_worker_state(ckpt_dir)
 
         ws = distributed_backend.get_world_size()
@@ -195,8 +196,9 @@ def train(
 
         # Train model
         t_start = time.perf_counter_ns()
+        batches = [get_batch(train_reader, device=cfg.device) for _ in range(cfg.acc_steps)]
         for microstep_idx in range(cfg.acc_steps):  # gradient accumulation
-            x, y = get_batch(train_reader, device=cfg.device)
+            x, y = batches[microstep_idx]
             with distributed_backend.get_context_for_microstep_forward(
                     model=model,
                     microstep_idx=microstep_idx,
@@ -209,12 +211,28 @@ def train(
                 loss.backward()
                 substep += 1
 
-        if cfg.grad_clip != 0.0:
+        if cfg.grad_clip != 0.0 and cfg.opt != "SLS":
             torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
         if cfg.opt == "SFAdamW":
             opt.train()
-        opt.step()
-        scheduler.step()
+
+        if cfg.opt == "SLS":
+            @torch.no_grad()
+            def get_loss():
+                loss = 0
+                for (x, y) in batches:
+                    outputs = model(x, targets=y)
+                    loss = loss + outputs["loss"]
+                return loss / cfg.acc_steps
+
+            model.eval()  # we don't want dropout to add noise to the line search
+            loss = opt.step(get_loss)
+            model.train()
+        else:
+            opt.step()
+
+        if scheduler is not None:
+            scheduler.step()
         opt.zero_grad(set_to_none=True)
         if cfg.weight_average:
             weight_averager.step(non_compiled_model, distributed_backend.is_master_process())
@@ -231,7 +249,10 @@ def train(
         ):
             train_loss = loss.detach().cpu().item() * cfg.acc_steps
 
-            current_lrs = [param_group["lr"] for param_group in opt.param_groups]
+            if cfg.opt == "SLS":
+                current_lrs = [opt.params["step_size"]]
+            else:
+                current_lrs = [param_group["lr"] for param_group in opt.param_groups]
 
             print(
                 f"Train: Iter={curr_iter} ({epoch:0.3f} epochs) "
