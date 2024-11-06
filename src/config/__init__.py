@@ -1,7 +1,8 @@
-from . import base
+from . import base, infer
 
 CONFIG_FORMAT_TO_MODULE_MAP = {
     "base": base,
+    "infer": infer,
 }
 
 
