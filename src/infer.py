@@ -30,7 +30,7 @@ def main(args):
 
     model = get_model(args).to(device).eval()
 
-    result_path = Path(args.infer_result_path or args.exp_path) / args.infer_name
+    result_path = Path(args.infer_result_path or args.exp_path) / (args.infer_name or "infer")
     result_path.mkdir(exist_ok=True)
     result_path = result_path / "result.npz"
 
@@ -91,7 +91,7 @@ def to_cpu(x):
 def get_args():
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument(
-        "--config_format", default="base", choices=config.registered_formats()
+        "--config_format", default="infer", choices=config.registered_formats()
     )
 
     args, rem_args = parser.parse_known_args()

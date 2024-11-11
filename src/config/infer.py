@@ -12,7 +12,7 @@ def parse_args(base_parser, args, namespace):
 
     # exp
     parser.add_argument("--exp-path", type=str)
-    parser.add_argument("--infer-name", default='infer', type=str)
+    parser.add_argument("--infer-name", default=None, type=str)
     parser.add_argument("--infer-result-path", default=None, type=str)
     parser.add_argument("--chkp-path", default=None, type=str)
 
