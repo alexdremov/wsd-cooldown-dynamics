@@ -121,11 +121,21 @@ class LlamaAttention(CausalSelfAttention):
             y = torch.nn.functional.scaled_dot_product_attention(
                 q, k, v, attn_mask=None, dropout_p=self.dropout, is_causal=True
             )
+            with torch.no_grad():
+                att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+                att = F.softmax(att, dim=-1)
+                log_stat(
+                    "attention_entropy", self._get_attention_entropy(att)
+                )
+                del att
         else:
             # manual implementation of attention
             att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
             att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float("-inf"))
             att = F.softmax(att, dim=-1)
+            log_stat(
+                "attention_entropy", self._get_attention_entropy(att)
+            )
             att = self.attn_dropout(att)
             y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
         y = (
@@ -233,6 +243,11 @@ class Llama(GPTBase):
             )  # note: using list [-1] to preserve the time dim
             loss = None
 
+        with torch.no_grad():
+            scores = F.softmax(logits, dim=-1)
+            log_stat(
+                "logits_entropy", (-scores * torch.log(scores)).mean()
+            )
         logits = logits if get_logits else None
 
         return {

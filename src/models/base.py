@@ -109,7 +109,7 @@ class CausalSelfAttention(nn.Module):
     @staticmethod
     @torch.no_grad()
     def _get_attention_entropy(att):
-        return (-att * torch.log(att)).sum(-1).mean().item()
+        return (-att * torch.log(att)).sum(-1).mean()
 
 
 class MLP(nn.Module):

@@ -1,36 +1,40 @@
 import functools
 import numpy as np
-from collections import defaultdict
+import os
 import torch
-import torch.distributed
+
+from collections import defaultdict
+from copy import deepcopy
 
 _prev_states = list()
 _state = dict()
-_enabled = True
+_enabled = False
 
 
+@torch.compiler.disable()
 def log_stat(name, value):
     if not _enabled:
         return
 
-    if torch.distributed.is_initialized() and torch.distributed.get_rank() != 0:
+    if int(os.environ.get("RANK", 0)) != 0:
         return
 
     if not isinstance(name, tuple):
         name = (name, )
     already_logged = sum(name == k[:-1] for k in _state)
     name = (*name, already_logged)
+    if isinstance(value, torch.Tensor):
+        value = value.item()
     _state[name] = value
 
 
 def mark_step_end():
-    _prev_states.append(_state)
+    _prev_states.append(deepcopy(_state))
     _state.clear()
 
 
 def reset_logging():
     global _enabled
-    _enabled = True
     _state.clear()
     _prev_states.clear()
 

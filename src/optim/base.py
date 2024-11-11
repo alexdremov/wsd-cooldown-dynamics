@@ -269,7 +269,7 @@ def train(
                 f"train_loss={train_loss:.3f} iter_dt={dt:.2e}s "
                 f"lr={current_lrs[0]:.2e}"
             )
-
+            stats = dump_and_reset()
             if cfg.wandb:
                 wandb.log(
                     {
@@ -278,7 +278,7 @@ def train(
                         "train/perplexity": 2.71828**train_loss,
                         "lr": current_lrs[0],
                         "iter_dt": dt,
-                    } | dump_and_reset()
+                    } | stats
                 )
 
     return stats
