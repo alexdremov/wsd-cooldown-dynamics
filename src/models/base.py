@@ -14,6 +14,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+from logger.global_watcher import log_stat
+
 
 class LayerNorm(nn.Module):
     """LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False"""
@@ -78,13 +80,24 @@ class CausalSelfAttention(nn.Module):
             y = torch.nn.functional.scaled_dot_product_attention(
                 q, k, v, attn_mask=None, dropout_p=self.dropout, is_causal=True
             )
+            with torch.no_grad():
+                att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+                att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float("-inf"))
+                att = F.softmax(att, dim=-1)
+                log_stat(
+                    "attention_entropy", self._get_attention_entropy(att)
+                )
         else:
             # manual implementation of attention
             att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
             att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float("-inf"))
             att = F.softmax(att, dim=-1)
+            log_stat(
+                "attention_entropy", self._get_attention_entropy(att)
+            )
             att = self.attn_dropout(att)
             y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+
         y = (
             y.transpose(1, 2).contiguous().view(B, T, C)
         )  # re-assemble all head outputs side by side
@@ -92,6 +105,11 @@ class CausalSelfAttention(nn.Module):
         # output projection
         y = self.resid_dropout(self.c_proj(y))
         return y
+
+    @staticmethod
+    @torch.no_grad()
+    def _get_attention_entropy(att):
+        return (-att * torch.log(att)).sum(-1).mean().item()
 
 
 class MLP(nn.Module):
@@ -237,6 +255,13 @@ class GPTBase(nn.Module):
                 x[:, [-1], :]
             )  # note: using list [-1] to preserve the time dim
             loss = None
+
+        with torch.no_grad():
+            scores = F.softmax(logits, dim=-1)
+            log_stat(
+                "logits_entropy", (-scores * torch.log(scores)).mean()
+            )
+
         logits = logits if get_logits else None
         return {
             "logits": logits,

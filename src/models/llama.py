@@ -1,5 +1,5 @@
 """
-Llama style Language Model that is 
+Llama style Language Model that is
 compilable (avoids torch complex)
 """
 
@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from models.base import CausalSelfAttention, GPTBase
+
+from logger.global_watcher import log_stat
 
 
 def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0) -> torch.Tensor:

@@ -8,6 +8,12 @@ import torch
 import wandb
 
 from logger.logger import DynamicsLogger
+from logger.global_watcher import (
+    dump_and_reset,
+    enable_logging,
+    disable_logging,
+    mark_step_end,
+)
 from optim.weight_averaging import (
     WeightAverager,
     eval_ema,
@@ -197,6 +203,8 @@ def train(
         # Train model
         t_start = time.perf_counter_ns()
         batches = [get_batch(train_reader, device=cfg.device) for _ in range(cfg.acc_steps)]
+
+        enable_logging()
         for microstep_idx in range(cfg.acc_steps):  # gradient accumulation
             x, y = batches[microstep_idx]
             with distributed_backend.get_context_for_microstep_forward(
@@ -210,6 +218,8 @@ def train(
                 loss = outputs["loss"] / cfg.acc_steps
                 loss.backward()
                 substep += 1
+                mark_step_end()
+        disable_logging()
 
         if cfg.grad_clip != 0.0 and cfg.opt != "SLS":
             torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
@@ -268,7 +278,7 @@ def train(
                         "train/perplexity": 2.71828**train_loss,
                         "lr": current_lrs[0],
                         "iter_dt": dt,
-                    }
+                    } | dump_and_reset()
                 )
 
     return stats
