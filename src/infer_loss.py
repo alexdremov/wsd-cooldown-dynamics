@@ -36,6 +36,13 @@ def direction_add(a, b):
     }
 
 
+@torch.inference_mode()
+def direction_sub(a, b):
+    return {
+        k: a[k] - v.to(a[k]) for k, v in b.items()
+    }
+
+
 def is_weight_filtered(k):
     return ('.ln_1.' in k) or ('.ln_2.' in k)
 
@@ -50,14 +57,7 @@ def get_delta(basis, coords):
     return base
 
 
-def get_basis(state_dict, n=2):
-    initial_basis = [
-        {
-            k: torch.randn_like(w, dtype=torch.float32) for k, w in state_dict.items()
-        }
-        for _ in range(n)
-    ]
-
+def gram_shmidt(initial_basis):
     orthogonal_basis = []
 
     for i, ui in enumerate(initial_basis):
@@ -75,14 +75,29 @@ def get_basis(state_dict, n=2):
                 continue
             basis_dot = direction_dot(u, v)
             assert abs(basis_dot) < 1e-2, f"Got nonorthogonal basis {basis_dot = }"
+    return orthogonal_basis
 
-    orthonormalized_basis = [
+
+def normalize_directions(state_dict, directions, filtering=None):
+    return [
         {
-            k: v * (0.0 if is_weight_filtered(k) else (torch.norm(state_dict[k]) / torch.norm(v)))
+            k: v * (0.0 if filtering is not None and filtering(k) else (torch.norm(state_dict[k]) / torch.norm(v)))
             for k, v in vector.items()
         }
-        for vector in orthogonal_basis
+        for vector in directions
     ]
+
+
+def get_basis(state_dict, n=2):
+    initial_basis = [
+        {
+            k: torch.randn_like(w, dtype=torch.float32) for k, w in state_dict.items()
+        }
+        for _ in range(n)
+    ]
+
+    orthogonal_basis = gram_shmidt(initial_basis)
+    orthonormalized_basis = normalize_directions(state_dict, orthogonal_basis, filtering=is_weight_filtered)
 
     return orthonormalized_basis
 
@@ -121,7 +136,11 @@ def main(args):
     if args.compile:
         model = torch.compile(model)
 
-    directions = get_basis(model.state_dict(), n=args.infer_loss_dims_num)
+    if args.infer_loss_directions_file is None:
+        directions = get_basis(model.state_dict(), n=args.infer_loss_dims_num)
+    else:
+        directions = torch.load(args.infer_loss_directions_file)
+        assert len(directions) == args.infer_loss_dims_num
     torch.save(directions, result_path_pt)
 
     axes = np.linspace(-args.infer_loss_magnitude, args.infer_loss_magnitude, int(args.infer_loss_points ** (1 / args.infer_loss_dims_num)))
