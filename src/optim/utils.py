@@ -276,6 +276,9 @@ def load_checkpoint(model, opt, scheduler, ckpt_path, device, weight_averager = 
     ckpt = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(ckpt["model"])
     if not reset_optimizer and "optimizer" in ckpt:
+        if isinstance(opt, torch.optim.AdamW):
+            for group in ckpt["optimizer"]['param_groups']:
+                group['betas'] = opt.defaults['betas']
         opt.load_state_dict(ckpt["optimizer"])
     if scheduler is not None and "scheduler" in ckpt:
         scheduler.load_state_dict(ckpt["scheduler"])
