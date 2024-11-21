@@ -143,9 +143,20 @@ def main(args):
         assert len(directions) == args.infer_loss_dims_num
     torch.save(directions, result_path_pt)
 
-    axes = np.linspace(-args.infer_loss_magnitude, args.infer_loss_magnitude, int(args.infer_loss_points ** (1 / args.infer_loss_dims_num)))
-    axes = sorted(axes.tolist() + [0.0])
-    mesh = np.meshgrid(*([axes] * args.infer_loss_dims_num))
+    infer_loss_magnitude = args.infer_loss_magnitude
+    if ':' in infer_loss_magnitude:
+        infer_loss_magnitude = list(map(float, infer_loss_magnitude.split(':')))
+    else:
+        infer_loss_magnitude = [float(infer_loss_magnitude)] * args.infer_loss_dims_num
+
+    assert len(infer_loss_magnitude) == args.infer_loss_dims_num
+
+    axes = [
+        np.linspace(-magn, magn, int(args.infer_loss_points ** (1 / args.infer_loss_dims_num)))
+        for magn in infer_loss_magnitude
+    ]
+    axes = [sorted(i.tolist() + [0.0]) for i in axes]
+    mesh = np.meshgrid(*axes)
     points = np.stack(mesh, axis=0).reshape(2, -1).T
 
     datareader = get_data_reader(args)
