@@ -11,7 +11,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from models.base import CausalSelfAttention, GPTBase
 
-from logger.global_watcher import log_stat
+from logger.global_watcher import log_stat, global_logger_disabled
 
 
 def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0) -> torch.Tensor:
@@ -121,7 +121,7 @@ class LlamaAttention(CausalSelfAttention):
             y = torch.nn.functional.scaled_dot_product_attention(
                 q, k, v, attn_mask=None, dropout_p=self.dropout, is_causal=True
             )
-            if self.training:
+            if self.training and not global_logger_disabled():
                 with torch.no_grad():
                     att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
                     att = F.softmax(att, dim=-1)
@@ -244,11 +244,12 @@ class Llama(GPTBase):
             )  # note: using list [-1] to preserve the time dim
             loss = None
 
-        with torch.no_grad():
-            scores = F.softmax(logits, dim=-1)
-            log_stat(
-                "logits_entropy", (-scores * torch.log(scores)).mean()
-            )
+        if not global_logger_disabled():
+            with torch.no_grad():
+                scores = F.softmax(logits, dim=-1)
+                log_stat(
+                    "logits_entropy", (-scores * torch.log(scores)).mean()
+                )
         logits = logits if get_logits else None
 
         return {

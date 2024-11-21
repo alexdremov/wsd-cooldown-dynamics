@@ -9,6 +9,16 @@ from copy import deepcopy
 _prev_states = list()
 _state = dict()
 _enabled = False
+_global_disable = True
+
+
+def global_logger_disabled():
+    return _global_disable
+
+
+def global_logger_set_status(state):
+    global _global_disable
+    _global_disable = state
 
 
 @torch.compiler.disable()
