@@ -20,6 +20,10 @@ from optim.weight_averaging import (
     eval_wa,
     ExponentialWeightAverager,
 )
+from optim.grad_checker import (
+    direction_cos,
+    direction_sub,
+)
 from .utils import (
     eval,
     get_batch,
@@ -38,6 +42,7 @@ def train(
     exp_dir,
     distributed_backend,
     cfg,
+    param_name_mapping,
 ):
     if cfg.compile:
         print(f"Compiling model ...")
@@ -130,6 +135,10 @@ def train(
             replicate=cfg.shuffle_next_steps_replicate,
             reuse_before=cfg.shuffle_next_steps_use_all_before
         )
+
+    alignment_direction = None
+    if cfg.alignment_direction_file:
+        alignment_direction = torch.load(cfg.alignment_direction_file, map_location="cuda")
 
     stats = {"train_loss": [], "val_loss": [], "val_pp": [], "val_acc": []}
     model.train()
@@ -226,6 +235,10 @@ def train(
         if cfg.opt == "SFAdamW":
             opt.train()
 
+        if alignment_direction is not None:
+            state_before = {k: v.detach().clone() for k, v in model.state_dict().items()}
+
+
         if cfg.opt == "SLS":
             @torch.no_grad()
             def get_loss():
@@ -270,6 +283,41 @@ def train(
                 f"lr={current_lrs[0]:.2e}"
             )
             stats = dump_and_reset()
+            if alignment_direction is not None:
+                stats["direction_gradients_cos"] = direction_cos(
+                    model.state_dict(),
+                    alignment_direction,
+                )
+
+                stats["direction_update_cos"] = direction_cos(
+                    direction_sub(model.state_dict(), state_before),
+                    alignment_direction,
+                )
+
+                if cfg.opt == "adamw":
+                    def extract_momentum_states(optimizer):
+                        momentum_states = {}
+                        for param_group in optimizer.param_groups:
+                            for param in param_group['params']:
+                                if param in optimizer.state:
+                                    state = optimizer.state[param]
+                                    exp_avg = state.get('exp_avg', None)
+                                    exp_avg_sq = state.get('exp_avg_sq', None)
+                                    momentum_states[param] = {
+                                        'exp_avg': exp_avg,
+                                        'exp_avg_sq': exp_avg_sq
+                                    }
+                        return momentum_states
+                    momentum = extract_momentum_states(opt)
+                    stats["direction_momentum_cos"] = direction_cos(
+                        {k: momentum[p]['exp_avg'] for k, p in model.named_parameters()},
+                        alignment_direction,
+                    )
+
+
+
+
+
             if cfg.wandb:
                 wandb.log(
                     {

@@ -219,4 +219,6 @@ def parse_args(base_parser, args, namespace):
     parser.add_argument("--bias", default=False, type=bool)
     parser.add_argument("--compile", action="store_true")
     parser.add_argument("--mlp-dim-exp-factor", default=1.0, type=float)
+
+    parser.add_argument("--alignment-direction-file", default=None, type=str)
     return parser.parse_args(args, namespace)

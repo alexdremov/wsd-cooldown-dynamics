@@ -190,6 +190,7 @@ def main(args):
         exp_dir=str(exp_dir),
         distributed_backend=distributed_backend,
         cfg=args,
+        param_name_mapping=param_name_mapping
     )
 
     stats["args"] = vars(args)
