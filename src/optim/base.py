@@ -110,7 +110,9 @@ def train(
             resume_from_ema=cfg.resume_from_ema,
             reset_optimizer=cfg.reset_optimizer
         )
-        load_worker_state(ckpt_dir)
+        if not curr_iter >= cfg.iterations:
+            # only eval run will fire, no need to restore states
+            load_worker_state(ckpt_dir)
     else:
         curr_iter = 0
 
