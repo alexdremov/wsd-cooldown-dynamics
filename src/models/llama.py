@@ -212,7 +212,7 @@ class Llama(GPTBase):
         n_params = sum(p.numel() for p in self.parameters())
         return n_params
 
-    def forward(self, idx, targets=None, get_logits=False):
+    def forward(self, idx, targets=None, get_logits=False, get_all_states=False):
         device = idx.device
         b, t = idx.size()
         assert (
@@ -227,9 +227,15 @@ class Llama(GPTBase):
         x = self.transformer.drop(tok_emb)
         freqs_cis = self.freqs_cis.to(x.device)[pos]
 
+        states = []
         for block in self.transformer.h:
+            if get_all_states:
+                states.append(x)
             x = block(x, freqs_cis=freqs_cis)
         x = self.transformer.ln_f(x)
+
+        if get_all_states:
+            states.append(x)
 
         if targets is not None:
             # if we are given some desired targets also calculate the loss
@@ -255,4 +261,5 @@ class Llama(GPTBase):
         return {
             "logits": logits,
             "loss": loss,
+            "states": states,
         }

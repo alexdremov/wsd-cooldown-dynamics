@@ -32,6 +32,7 @@ from .utils import (
     save_checkpoint,
     save_worker_state,
 )
+from .linear_probe import train_score_linear_probe
 
 
 def train(
@@ -284,7 +285,17 @@ def train(
                 f"train_loss={train_loss:.3f} iter_dt={dt:.2e}s "
                 f"lr={current_lrs[0]:.2e}"
             )
+
             stats = dump_and_reset()
+            if cfg.probe_states:
+                final_probe_train_loss, probes_loss = train_score_linear_probe(
+                    model, train_reader, cfg.device
+                )
+                stats['probe_train_loss'] = final_probe_train_loss
+                stats |= {
+                    f"probe_eval_loss/layer_{k}": v for k, v in probes_loss.items()
+                }
+
             if alignment_direction is not None:
                 stats["direction_gradients_cos"] = direction_cos(
                     model.state_dict(),
@@ -315,10 +326,6 @@ def train(
                         {k: momentum[p]['exp_avg'] for k, p in model.named_parameters()},
                         alignment_direction,
                     )
-
-
-
-
 
             if cfg.wandb:
                 wandb.log(
