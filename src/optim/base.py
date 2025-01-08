@@ -282,7 +282,6 @@ def train(
 
         if scheduler is not None:
             scheduler.step()
-        opt.zero_grad(set_to_none=True)
         if cfg.weight_average:
             weight_averager.step(non_compiled_model, distributed_backend.is_master_process())
         if cfg.exponential_moving_average:
@@ -359,6 +358,8 @@ def train(
                         "iter_dt": dt,
                     } | stats
                 )
+
+        opt.zero_grad(set_to_none=True)
 
     return stats
 
