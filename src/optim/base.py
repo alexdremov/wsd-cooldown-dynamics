@@ -5,7 +5,10 @@ import time
 import yaml
 
 import torch
+import torch.distributed
 import wandb
+
+import numpy as np
 
 from logger.logger import DynamicsLogger
 from logger.global_watcher import (
@@ -184,6 +187,26 @@ def train(
                 opt,
                 full_eval=(curr_iter in cfg.full_eval_at),
             )
+            if cfg.probe_states:
+                final_probe_train_loss, probes_loss = train_score_linear_probe(
+                    model, train_reader, cfg.device
+                )
+                stats = {}
+                stats['probe_train_ppl'] = 2.71828 ** final_probe_train_loss
+                stats |= {
+                    f"probe_eval_ppl/layer_{k}": 2.71828 ** v for k, v in probes_loss.items()
+                }
+                outputs = [dict()] * torch.distributed.get_world_size()
+                torch.distributed.all_gather_object(outputs, stats)
+                if cfg.wandb and distributed_backend.is_master_process():
+                    wandb.log(
+                        {
+                            "iter": curr_iter,
+                        } | {
+                            k: np.mean([i[k] for i in outputs])
+                            for k in outputs[0]
+                        }
+                    )
 
             if curr_iter > cfg.wa_interval and cfg.weight_average:
                 eval_wa(
@@ -287,14 +310,6 @@ def train(
             )
 
             stats = dump_and_reset()
-            if cfg.probe_states:
-                final_probe_train_loss, probes_loss = train_score_linear_probe(
-                    model, train_reader, cfg.device
-                )
-                stats['probe_train_loss'] = final_probe_train_loss
-                stats |= {
-                    f"probe_eval_loss/layer_{k}": v for k, v in probes_loss.items()
-                }
 
             if alignment_direction is not None:
                 stats["direction_gradients_cos"] = direction_cos(

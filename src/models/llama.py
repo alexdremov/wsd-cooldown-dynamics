@@ -232,10 +232,10 @@ class Llama(GPTBase):
             if get_all_states:
                 states.append(x)
             x = block(x, freqs_cis=freqs_cis)
-        x = self.transformer.ln_f(x)
-
         if get_all_states:
             states.append(x)
+
+        x = self.transformer.ln_f(x)
 
         if targets is not None:
             # if we are given some desired targets also calculate the loss
