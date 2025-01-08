@@ -19,7 +19,10 @@ def direction_dot(a, b):
 @torch.no_grad()
 def direction_cos(a, b):
     a, b = fix_state_dict(a), fix_state_dict(b)
-    return direction_dot(a, b) / ((direction_dot(a, a) ** 0.5) * (direction_dot(b, b) ** 0.5))
+    denom = ((direction_dot(a, a) ** 0.5) * (direction_dot(b, b) ** 0.5))
+    if abs(denom) < 1e-5:
+        return 1.0
+    return direction_dot(a, b) / denom
 
 
 @torch.no_grad()
