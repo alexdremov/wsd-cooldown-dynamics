@@ -311,6 +311,27 @@ def train(
 
             stats = dump_and_reset()
 
+            def extract_momentum_states(optimizer):
+                momentum_states = {}
+                for param_group in optimizer.param_groups:
+                    for param in param_group['params']:
+                        if param in optimizer.state:
+                            state = optimizer.state[param]
+                            exp_avg = state.get('exp_avg', None)
+                            exp_avg_sq = state.get('exp_avg_sq', None)
+                            momentum_states[param] = {
+                                'exp_avg': exp_avg,
+                                'exp_avg_sq': exp_avg_sq
+                            }
+                return momentum_states
+
+            momentum = extract_momentum_states(opt)
+
+            stats["grads_momentum_alignment"] = direction_cos(
+                {k: momentum[p]['exp_avg'] for k, p in model.named_parameters()  if p.grad is not None},
+                {k: p.grad for k, p in model.named_parameters() if p.grad is not None},
+            )
+
             if alignment_direction is not None:
                 stats["direction_gradients_cos"] = direction_cos(
                     model.state_dict(),
@@ -323,20 +344,6 @@ def train(
                 )
 
                 if cfg.opt == "adamw":
-                    def extract_momentum_states(optimizer):
-                        momentum_states = {}
-                        for param_group in optimizer.param_groups:
-                            for param in param_group['params']:
-                                if param in optimizer.state:
-                                    state = optimizer.state[param]
-                                    exp_avg = state.get('exp_avg', None)
-                                    exp_avg_sq = state.get('exp_avg_sq', None)
-                                    momentum_states[param] = {
-                                        'exp_avg': exp_avg,
-                                        'exp_avg_sq': exp_avg_sq
-                                    }
-                        return momentum_states
-                    momentum = extract_momentum_states(opt)
                     stats["direction_momentum_cos"] = direction_cos(
                         {k: momentum[p]['exp_avg'] for k, p in model.named_parameters()},
                         alignment_direction,
