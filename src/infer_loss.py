@@ -133,9 +133,6 @@ def main(args):
         }
     )
 
-    if args.compile:
-        model = torch.compile(model)
-
     if args.infer_loss_directions_file is None:
         directions = get_basis(model.state_dict(), n=args.infer_loss_dims_num)
     else:
@@ -189,7 +186,10 @@ def main(args):
                     x = x.to(device)
                     y = y.to(device)
 
-                out = model(x, targets=y)
+                if args.compile:
+                    out = torch.compile(model)(x, targets=y)
+                else:
+                    out = model(x, targets=y)
                 losses.append(out['loss'].item())
             loss = np.mean(losses)
             print(f"Processed point {i + 1}/{len(points)}: {point} -> {loss}")
