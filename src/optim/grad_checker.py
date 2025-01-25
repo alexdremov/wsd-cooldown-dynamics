@@ -10,10 +10,16 @@ def fix_state_dict(d):
 @torch.no_grad()
 def direction_dot(a, b):
     a, b = fix_state_dict(a), fix_state_dict(b)
-    result = 0
+    result = None
     for k in a:
-        result += (a[k] * b[k].to(a[k])).sum().item()
-    return result
+        dot = (a[k] * b[k].to(a[k])).sum()
+        if result is None:
+            result = dot
+        else:
+            result += dot
+    if result is None:
+        return 0.0
+    return result.item()
 
 
 @torch.no_grad()

@@ -288,9 +288,25 @@ def train(
 
             momentum = extract_momentum_states(opt)
             # calculating cos before step
-            grads_alignment = direction_cos(
-                {k: momentum[p]['exp_avg'] for k, p in model.named_parameters()  if p.grad is not None},
-                {k: p.grad for k, p in model.named_parameters() if p.grad is not None},
+            cosines = {
+                k: direction_cos(
+                    {k: momentum[p]['exp_avg']},
+                    {k: p.grad},
+                )
+                for k, p in model.named_parameters() if p.grad is not None
+            }
+            cosines_values = list(cosines.values())
+            grads_alignment = dict(
+                grads_momentum_alignment=np.mean(cosines_values),
+                grads_momentum_alignment_median=np.median(cosines_values),
+                **{
+                    f"grads_momentum_alignment_q{q}": np.quantile(cosines_values, q / 100)
+                    for q in range(0, 101, 10)
+                },
+                **{
+                    f"grads_momentum_alignment_param/{k}": v
+                    for k, v in cosines.items()
+                }
             )
 
 
@@ -334,7 +350,7 @@ def train(
             )
 
             stats = dump_and_reset()
-            stats["grads_momentum_alignment"] = grads_alignment
+            stats |= grads_alignment
 
 
             if alignment_direction is not None:
