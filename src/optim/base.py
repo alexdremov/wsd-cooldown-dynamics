@@ -149,9 +149,12 @@ def train(
     stats = {"train_loss": [], "val_loss": [], "val_pp": [], "val_acc": []}
     model.train()
 
+    if cfg.one_step:
+        cfg.iterations = curr_iter + 1
+
     while curr_iter <= cfg.iterations:
         # Save permanent checkpoint
-        if cfg.permanent_ckpt_interval > 0:
+        if cfg.permanent_ckpt_interval > 0 or cfg.one_step:
             if curr_iter % cfg.permanent_ckpt_interval == 0:
                 ckpt_dir = Path(exp_dir) / "ckpts" / str(curr_iter)
                 if distributed_backend.is_master_process():
