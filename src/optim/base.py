@@ -256,8 +256,9 @@ def train(
                 mark_step_end()
         disable_logging()
 
+        grad_norm = None
         if cfg.grad_clip != 0.0 and cfg.opt != "SLS":
-            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip).item()
         if cfg.opt == "SFAdamW":
             opt.train()
 
@@ -351,6 +352,7 @@ def train(
 
             stats = dump_and_reset()
             stats |= grads_alignment
+            stats['grad_norm'] = grad_norm
 
 
             if alignment_direction is not None:
