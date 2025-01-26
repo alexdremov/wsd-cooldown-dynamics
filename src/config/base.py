@@ -223,5 +223,5 @@ def parse_args(base_parser, args, namespace):
     parser.add_argument("--alignment-direction-file", default=None, type=str)
     parser.add_argument("--probe-states", action="store_true", default=False)
 
-    parser.add_argument("--one-step", action="store_true")
+    parser.add_argument("--one-step", default=None, type=int)
     return parser.parse_args(args, namespace)
