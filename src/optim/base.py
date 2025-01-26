@@ -155,7 +155,7 @@ def train(
     while curr_iter <= cfg.iterations:
         # Save permanent checkpoint
         if cfg.permanent_ckpt_interval > 0 or cfg.one_step or curr_iter == cfg.iterations:
-            if curr_iter % cfg.permanent_ckpt_interval == 0:
+            if curr_iter % cfg.permanent_ckpt_interval == 0 or cfg.one_step or curr_iter == cfg.iterations:
                 ckpt_dir = Path(exp_dir) / "ckpts" / str(curr_iter)
                 if distributed_backend.is_master_process():
                     save_checkpoint(model, opt, scheduler, curr_iter, ckpt_dir, weight_averager=weight_averager, ema=ema)
