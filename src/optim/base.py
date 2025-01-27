@@ -299,7 +299,7 @@ def train(
                 )
                 for k, p in model.named_parameters() if p.grad is not None
             }
-            cosines_values = list(cosines.values())
+            cosines_values = [i for i in cosines.values() if i is not None]
             grads_alignment = dict(
                 grads_momentum_alignment=np.mean(cosines_values),
                 grads_momentum_alignment_median=np.median(cosines_values),

@@ -26,8 +26,8 @@ def direction_dot(a, b):
 def direction_cos(a, b):
     a, b = fix_state_dict(a), fix_state_dict(b)
     denom = ((direction_dot(a, a) ** 0.5) * (direction_dot(b, b) ** 0.5))
-    if abs(denom) < 1e-5:
-        return 1.0
+    if abs(denom) < 1e-8:
+        return None
     return direction_dot(a, b) / denom
 
 
