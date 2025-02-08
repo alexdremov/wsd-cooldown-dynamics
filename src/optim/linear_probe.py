@@ -20,7 +20,7 @@ class LinearProber:
 
         def make_head():
             l = nn.Linear(hid_dim, dict_size, device=device, bias=False)
-            l.weight.copy_(init_with)
+            l.weight.data = init_with.detach().clone()
             return l
 
         self.projs = [
