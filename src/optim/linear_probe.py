@@ -62,7 +62,7 @@ def train_score_linear_probe(model: Llama, dataset: DataReader, device):
             dict_size=dict_size,
             device=device,
             train_steps=train_batches,
-            init_with=model.lm_head.weight,
+            init_with=model.module.lm_head.weight,
         )
         return prober
 
