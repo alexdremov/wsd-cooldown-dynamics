@@ -13,15 +13,20 @@ import numpy as np
 
 
 class LinearProber:
-    def __init__(self, layers_num, hid_dim, dict_size, device, train_steps):
+    def __init__(self, layers_num, hid_dim, dict_size, device, train_steps, init_with):
         super().__init__()
         self.layers_num = layers_num
         self.dict_size = dict_size
 
+        def make_head():
+            l = nn.Linear(hid_dim, dict_size, device=device, bias=False)
+            l.weight.copy_(init_with)
+            return l
+
         self.projs = [
             nn.Sequential(
                 RMSNorm(hid_dim).to(device),
-                nn.Linear(hid_dim, dict_size, device=device, bias=False)
+                make_head()
             )
             for _ in range(layers_num)
         ]
@@ -29,7 +34,7 @@ class LinearProber:
             DDP(i) for i in self.projs
         ]
         self.opts = [
-            torch.optim.AdamW(i.parameters(), lr=1e-2) for i in self.projs
+            torch.optim.AdamW(i.parameters(), lr=1e-2, weight_decay=1e-3) for i in self.projs
         ]
         self.scheds = [
             torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=opt, T_max=train_steps)
@@ -45,7 +50,7 @@ def train_score_linear_probe(model: Llama, dataset: DataReader, device):
 
     prober = None
 
-    train_batches = min(dataset.num_batches() // 2, 1000)
+    train_batches = min(dataset.num_batches() // 2, 2000)
     eval_batches = min(dataset.num_batches() - train_batches, 1000)
     dataset.set_step(0)
 
@@ -57,6 +62,7 @@ def train_score_linear_probe(model: Llama, dataset: DataReader, device):
             dict_size=dict_size,
             device=device,
             train_steps=train_batches,
+            init_with=model.lm_head.weight,
         )
         return prober
 
