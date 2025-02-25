@@ -297,14 +297,14 @@ def train(
                     {k: momentum[p]['exp_avg']},
                     {k: p.grad},
                 )
-                for k, p in model.named_parameters() if p.grad is not None
+                for k, p in model.named_parameters() if p.grad is not None and p in momentum
             }
             cosines_values = [i for i in cosines.values() if i is not None]
             grads_alignment = dict(
-                grads_momentum_alignment=np.mean(cosines_values),
-                grads_momentum_alignment_median=np.median(cosines_values),
+                grads_momentum_alignment=np.mean(cosines_values) if cosines_values else None,
+                grads_momentum_alignment_median=np.median(cosines_values) if cosines_values else None,
                 **{
-                    f"grads_momentum_alignment_q{q}": np.quantile(cosines_values, q / 100)
+                    f"grads_momentum_alignment_q{q}": np.quantile(cosines_values, q / 100)  if cosines_values else None
                     for q in range(0, 101, 10)
                 },
                 **{
