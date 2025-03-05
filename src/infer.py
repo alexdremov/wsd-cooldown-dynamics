@@ -36,7 +36,7 @@ def main(args):
 
     chkp_path = args.chkp_path or (Path(args.exp_path) / "ckpts" / "latest" / "main.pt")
 
-    ckpt = torch.load(chkp_path, map_location=device)
+    ckpt = torch.load(chkp_path, map_location=device, weights_only=False)
     model.load_state_dict(
         {
             k.replace('_orig_mod.', '').replace('module.', ''): v for k, v in ckpt["model"].items()

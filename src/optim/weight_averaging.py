@@ -13,7 +13,7 @@ def copy_on_cpu(model):
     torch.save(model, model_data_in_memory, pickle_protocol=-1)
     model_data_in_memory.seek(0)
 
-    copy = torch.load(model_data_in_memory, map_location="cpu")
+    copy = torch.load(model_data_in_memory, map_location="cpu", weights_only=False)
     model_data_in_memory.close()
     return copy
 
@@ -85,7 +85,7 @@ class WeightAverager:
         # Assumes that we saved at a specific iteration, will fail otherwise
         count = self.count - self.count % self.horizon
         latest_path = Path(self.save_dir) / f"{count}.pt"
-        map_and_load_state_dict(new_model, torch.load(latest_path))
+        map_and_load_state_dict(new_model, torch.load(latest_path, weights_only=False))
 
         return new_model
 
@@ -100,7 +100,7 @@ class WeightAverager:
         for n in range(min(self.num_saved, max_num)):
             # Load state from the corresponding checkpoint
             count = self.count - self.count % self.horizon - n * self.horizon
-            state = torch.load(Path(self.save_dir) / f"{count}.pt")
+            state = torch.load(Path(self.save_dir) / f"{count}.pt", weights_only=False)
 
             # Update average state
             for key, avg in avg_state.items():

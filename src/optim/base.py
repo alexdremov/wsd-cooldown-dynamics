@@ -144,7 +144,7 @@ def train(
 
     alignment_direction = None
     if cfg.alignment_direction_file:
-        alignment_direction = torch.load(cfg.alignment_direction_file, map_location="cuda")
+        alignment_direction = torch.load(cfg.alignment_direction_file, map_location="cuda", weights_only=False)
 
     stats = {"train_loss": [], "val_loss": [], "val_pp": [], "val_acc": []}
     model.train()

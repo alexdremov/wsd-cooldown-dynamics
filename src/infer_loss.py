@@ -126,7 +126,7 @@ def main(args):
 
     chkp_path = args.chkp_path or (Path(args.exp_path) / "ckpts" / "latest" / "main.pt")
 
-    ckpt = torch.load(chkp_path, map_location=device)
+    ckpt = torch.load(chkp_path, map_location=device, weights_only=False)
     model.load_state_dict(
         {
             k.replace('_orig_mod.', '').replace('module.', ''): v for k, v in ckpt["model"].items()
@@ -136,7 +136,7 @@ def main(args):
     if args.infer_loss_directions_file is None:
         directions = get_basis(model.state_dict(), n=args.infer_loss_dims_num)
     else:
-        directions = torch.load(args.infer_loss_directions_file)
+        directions = torch.load(args.infer_loss_directions_file, weights_only=False)
         assert len(directions) == args.infer_loss_dims_num
     torch.save(directions, result_path_pt)
 
