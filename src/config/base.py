@@ -80,6 +80,7 @@ def parse_args(base_parser, args, namespace):
         type=float,
         default=1.0
     )
+    parser.add_argument('--add-reader-steps', default=0, type=int)
     # Shuffle some of the upcoming steps
     parser.add_argument("--shuffle-next-steps", default=None, type=int)
     parser.add_argument("--shuffle-next-steps-seed", default=42, type=int)

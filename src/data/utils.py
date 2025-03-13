@@ -127,6 +127,9 @@ class DataReader:
     def set_step(self, step):
         self.step = step
 
+    def add_step(self, step):
+        self.step += step
+
     def sample_batch(self):
         data = self._get_data()
 
@@ -173,7 +176,7 @@ class DataReader:
 
         steps: shuffle this count of upcoming steps
         seed: seed to be used
-        replicate: replicate selected steps untill the rest of the epoch
+        replicate: replicate selected steps until the rest of the epoch
         reuse_before: use not only the specified steps but also all the steps before
 
         """

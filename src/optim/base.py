@@ -134,6 +134,9 @@ def train(
     train_reader, val_reader = datareaders["train"], datareaders["val"]
     train_reader.set_step(substep)
 
+    if cfg.add_reader_steps:
+        train_reader.add_step(cfg.add_reader_steps)
+
     if cfg.shuffle_next_steps:
         train_reader.shuffle_next_steps(
             steps=cfg.shuffle_next_steps,
