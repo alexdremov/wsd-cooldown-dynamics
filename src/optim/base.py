@@ -120,6 +120,9 @@ def train(
     else:
         curr_iter = 0
 
+    if cfg.reset_iterations:
+        curr_iter = 0
+
     if distributed_backend.is_master_process() and cfg.log_dynamics:
         with open(cfg.dynamics_logger_cfg, "r") as f:
             dlcfg = yaml.safe_load(f)
@@ -246,20 +249,22 @@ def train(
         batches = [get_batch(train_reader, device=cfg.device) for _ in range(cfg.acc_steps)]
 
         enable_logging()
-        for microstep_idx in range(cfg.acc_steps):  # gradient accumulation
-            x, y = batches[microstep_idx]
-            with distributed_backend.get_context_for_microstep_forward(
-                    model=model,
-                    microstep_idx=microstep_idx,
-                    gradient_accumulation_steps=cfg.acc_steps,
-                ):
-                with type_ctx:
-                    outputs = model(x, targets=y)
+        with torch.no_grad() if cfg.full_no_grad else torch.enable_grad():
+            for microstep_idx in range(cfg.acc_steps):  # gradient accumulation
+                x, y = batches[microstep_idx]
+                with distributed_backend.get_context_for_microstep_forward(
+                        model=model,
+                        microstep_idx=microstep_idx,
+                        gradient_accumulation_steps=cfg.acc_steps,
+                    ):
+                    with type_ctx:
+                        outputs = model(x, targets=y)
 
-                loss = outputs["loss"] / cfg.acc_steps
-                loss.backward()
-                substep += 1
-                mark_step_end()
+                    loss = outputs["loss"] / cfg.acc_steps
+                    if not cfg.full_no_grad:
+                        loss.backward()
+                    substep += 1
+                    mark_step_end()
         disable_logging()
 
         grad_norm = None
@@ -316,8 +321,9 @@ def train(
                 }
             )
 
-
-        if cfg.opt == "SLS":
+        if cfg.full_no_grad:
+            pass
+        elif cfg.opt == "SLS":
             @torch.no_grad()
             def get_loss():
                 loss = 0
