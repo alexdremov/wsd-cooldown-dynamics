@@ -42,8 +42,10 @@ def main(args):
         args.full_eval_at = []
 
     # NOTE args.seed is offset per worker in get_adjusted_args_for_process
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
+    torch.set_float32_matmul_precision("highest")
+
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -65,6 +67,7 @@ def main(args):
             # Auto resume overwrites resume_from
             args.resume_from = str(exp_dir / "ckpts" / "latest")
             args.resume_from_ema = False
+            args.reset_iterations = False
 
             # Auto resumes wandb run
             if (exp_dir / "ckpts" / "latest" / 'wandb_id.txt').exists():
