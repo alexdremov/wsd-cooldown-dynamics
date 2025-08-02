@@ -1,6 +1,6 @@
 # Codebase: Training Dynamics of the Cooldown Stage in Warmup-Stable-Decay Learning Rate Scheduler
 
-Under peer-review
+Accepted to TMLR
 
 **Abstract:**
 >   Learning rate scheduling is essential in transformer training, where the final annealing plays a crucial role in getting the best performance. However, the mechanisms behind this *cooldown phase*, with its characteristic drop in loss, remain poorly understood. To address this, we provide a comprehensive analysis focusing solely on the cooldown phase in the Warmup-Stable-Decay (WSD) learning rate scheduler. Our analysis reveals that different cooldown shapes reveal a fundamental *bias-variance trade-off* in the resulting models, with shapes that balance exploration and exploitation consistently outperforming alternatives. Similarly, we find substantial performance variations --- comparable to those from cooldown shape selection --- when tuning AdamW hyperparameters. Notably, we observe consistent improvements with higher values of $\beta_2$ during cooldown. From a loss landscape perspective, we provide visualizations of the landscape during cooldown, supporting the *river valley* loss perspective empirically. These findings offer practical recommendations for configuring the WSD scheduler in transformer training, emphasizing the importance of optimizing the cooldown phase alongside traditional hyperparameter tuning.
