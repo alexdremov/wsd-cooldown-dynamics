@@ -214,7 +214,8 @@ def train(
                         } | {
                             k: np.mean([i[k] for i in outputs])
                             for k in outputs[0]
-                        }
+                        }, 
+                        step=curr_iter
                     )
 
             if curr_iter > cfg.wa_interval and cfg.weight_average:
@@ -392,7 +393,8 @@ def train(
                         "train/perplexity": 2.71828**train_loss,
                         "lr": current_lrs[0],
                         "iter_dt": dt,
-                    } | stats
+                    } | stats,
+                    step=curr_iter,
                 )
 
         opt.zero_grad(set_to_none=True)
@@ -460,7 +462,7 @@ def eval_and_log(
                 "val/acc": val_acc,
             }
 
-        wandb.log(logs)
+        wandb.log(logs, step=curr_iter)
         if cfg.eval_seq_prefix != "none" and (
             curr_iter % (cfg.eval_interval * 5) == 0 or curr_iter == cfg.iterations
         ):
@@ -474,5 +476,5 @@ def eval_and_log(
             )
             text_table.add_data(curr_iter, val_perplexity, out_str)
             # why a copy? see github.com/wandb/wandb/issues/2981
-            wandb.log({f"generated-text-{wandb.run.name}": copy.copy(text_table)})
+            wandb.log({f"generated-text-{wandb.run.name}": copy.copy(text_table)}, step=curr_iter)
     model.train()
